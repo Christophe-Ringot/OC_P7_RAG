@@ -1,0 +1,52 @@
+[
+  {
+    "question": "Quels événements culturels gratuits ont lieu à Lille ce mois-ci ?",
+    "ground_truth": "Voici deux événements culturels gratuits à Lille ce mois-ci :\n1. **\"Les Voisins en fête\"** à la mairie de quartier de Lille-Centre, un moment convivial entre voisins.\n2. **\"Les Nuits de la Crypte #8\"** au Centre d'Art Sacré de Lille, incluant expositions, musique et danse.\n\n*(Note : Les autres événements mentionnés ne précisent pas s'ils sont gratuits.)*",
+    "contexts": []
+  },
+  {
+    "question": "Où puis-je trouver des concerts de musique classique à Lille ?",
+    "ground_truth": "À Lille, vous pouvez assister à des concerts de musique classique à l'Opéra de Lille avec des événements comme *\"Aegan Arc / Les Concerts du Mercredi à 18h\"* (musiques grecques) ou *\"Romances sans paroles / Les Concerts du Mercredi à 18h\"* (pause musicale dans le Grand foyer). Le Conservatoire de Lille propose aussi des concerts, comme *\"Concert Direction d'Orchestre\"* par les élèves de direction d'orchestre.",
+    "contexts": []
+  },
+  {
+    "question": "Y a-t-il des expositions d'art contemporain à Lille actuellement ?",
+    "ground_truth": "Oui, Lille accueille actuellement plusieurs expositions d'art contemporain. Le **MuMo - Musée Mobile** à la **Gare Saint Sauveur** explore les liens entre musique et art contemporain. De plus, le **Centre d'Art Sacré de Lille** propose une exposition d'art contemporain lors des **Nuits de la Crypte #8**. Enfin, la **Cathédrale Notre-Dame de la Treille** présente l'exposition *LA PASSION EN BLEU* avec Jean BERTHOLLE.",
+    "contexts": []
+  },
+  {
+    "question": "Quels spectacles pour enfants sont programmés à Lille ce week-end ?",
+    "ground_truth": "\"Ce week-end à Lille, les enfants peuvent assister à une visite d'un théâtre de marionnettes au Théâtre Le Petit Jacques (Journées Européennes du Patrimoine 2022). Aucun autre spectacle pour enfants n'est mentionné dans les documents fournis.\"\n\nÉvénement cité :\n- **JOURNÉES EUROPÉENNES DU PATRIMOINE 2022** (Théâtre Le Petit Jacques, Lille)",
+    "contexts": []
+  },
+  {
+    "question": "Comment puis-je réserver des places pour un concert à l'Aéronef ?",
+    "ground_truth": "Les documents fournis ne mentionnent aucun événement ou concert à l'Aéronef. Aucune information sur la réservation de places n'est disponible dans les sources.\n\nÉvénements alternatifs à Lille :\n- Concert Eldorado au Parc François Mitterrand (DOC 2)\n- Concert Molto Morbidi à la maison Folie Moulins (DOC 3)",
+    "contexts": []
+  },
+  {
+    "question": "Quels sont les événements culturels en plein air à Lille cet été ?",
+    "ground_truth": "Voici deux événements culturels en plein air à Lille cet été :\n1. **Festival exposition urbaine** (graffiti) à la **Chaufferie** (DOC 2).\n2. **Spectacle de rues** avec la Compagnie du Tire-Laine sur les **rues Verhulst, Bourget et Balzac** (DOC 5).\n\n*(Note : Aucun événement n'est explicitement daté \"cet été\" dans les documents, mais ces deux événements sont en extérieur.)*",
+    "contexts": []
+  },
+  {
+    "question": "Où trouver des festivals de musique électronique à Lille ?",
+    "ground_truth": "À Lille, vous pouvez assister à des festivals de musique électronique comme le **Festival Culture Bar-Bars** avec des DJs tels que **DJ OLIF ET ZOYMISTA** au **MUSICAL**, ou encore les **Nuits de la Crypte #8** au **Centre d'Art Sacré de Lille**, qui incluent des performances musicales et des nocturnes thématiques.",
+    "contexts": []
+  },
+  {
+    "question": "Quelles bibliothèques ou médiathèques proposent des événements culturels à Lille ?",
+    "ground_truth": "La médiathèque Lille-Sud propose une exposition de cerfs-volants. Aucun autre événement culturel n'est mentionné dans les documents pour d'autres bibliothèques ou médiathèques à Lille.",
+    "contexts": []
+  },
+  {
+    "question": "Y a-t-il des théâtres proposant des pièces en anglais à Lille ?",
+    "ground_truth": "Aucun des documents fournis ne mentionne de pièces en anglais à Lille. Les événements listés incluent des concerts traditionnels grecs à l'Opéra de Lille et une assemblée générale au Théâtre du Nord, mais aucune représentation théâtrale en anglais n'est citée.",
+    "contexts": []
+  },
+  {
+    "question": "Quels musées à Lille sont gratuits le premier dimanche du mois ?",
+    "ground_truth": "Aucun des documents fournis ne mentionne explicitement la gratuité des musées le premier dimanche du mois à Lille. Les événements listés (comme la Nocturne d'Halloween au Musée d'histoire naturelle ou les Nuits de la Crypte) ne précisent pas cette information.\n\n**Événements concrets mentionnés** :\n- Nocturne d'Halloween au Musée d'histoire naturelle de Lille (DOC 4)\n- Les Nuits de la Crypte #8 au Centre d'Art Sacré de Lille (DOC 1)\n\n*(Note : La réponse est limitée aux données disponibles, sans extrapolation.)*",
+    "contexts": []
+  }
+]

@@ -1,0 +1,21 @@
+services:
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+    env_file:
+      - .env
+    volumes:
+      - ./faiss_index.bin:/app/faiss_index.bin
+      - ./faiss_metadata.pkl:/app/faiss_metadata.pkl
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

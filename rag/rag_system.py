@@ -2,6 +2,7 @@ import os
 import pickle
 from typing import List, Dict, Optional
 import faiss
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from mistralai import Mistral
 from dotenv import load_dotenv
@@ -15,8 +16,8 @@ load_dotenv()
 class MistralConfig:
     MODELS = {
         "devstral-small": {
-            "name": "devstral-small-2505",
-            "temperature": 0.3,
+            "name": "mistral-small-latest",
+            "temperature": 0,
             "max_tokens": 1000,
         }
     }
@@ -36,7 +37,7 @@ class RAGSystem:
         metadata_path = "faiss_metadata.pkl",
         embedding_model_name = "paraphrase-multilingual-MiniLM-L12-v2"
     ):
-        
+
         # Initialise le système RAG.
         self.index_path = index_path
         self.metadata_path = metadata_path
@@ -58,7 +59,7 @@ class RAGSystem:
         if not os.path.exists(self.index_path):
             raise FileNotFoundError(f"Index FAISS introuvable : {self.index_path}")
         self.index = faiss.read_index(self.index_path)
-        
+
         # 2. Charger les métadonnées
         if not os.path.exists(self.metadata_path):
             raise FileNotFoundError(f"Métadonnées introuvables : {self.metadata_path}")
@@ -78,25 +79,25 @@ class RAGSystem:
 
 
     def _create_mistral_prompt(self, context, question) :
-        prompt = f"""<s>[INST] Tu es un assistant expert en événements culturels de Lille.
+        system_prompt = """Tu es un assistant expert en événements culturels de Lille.
+Tu réponds UNIQUEMENT avec les informations extraites des documents fournis.
 
-                    INSTRUCTIONS :
-                    - Réponds UNIQUEMENT avec les informations des documents fournis
-                    - Si l'information n'existe pas dans les documents, réponds "Information non disponible dans ma base"
-                    - Cite TOUJOURS tes sources (titre de l'événement + lieu)
-                    - Reste factuel, ne déduis rien, ne brode pas
-                    - Réponds en français
+RÈGLES ABSOLUES :
+1. Ta réponse doit toujours être directement liée au sujet précis de la question (lieu, type d'événement, etc.)
+2. Interdiction absolue de commencer par : "Oui", "Non", "D'après", "Selon", "Il y a", "Voici", "L'information"
+3. Chaque affirmation doit être tirée d'un document source
+4. N'ajoute AUCUNE information extérieure aux documents
+5. Si l'information exacte n'est pas dans les documents : commence par "Aucun événement [sujet de la question] n'est mentionné dans les documents disponibles." puis propose 3 événements alternatifs du même domaine
+6. Liste au maximum 5 événements, en priorité ceux qui répondent le mieux à la question
+7. Format : pour chaque événement, écris "**[Titre]** - [Description courte] - Lieu : [lieu]"
+8. Réponds en français de façon concise"""
 
-                    DOCUMENTS SOURCES :
-                    {context}
+        user_prompt = f"""DOCUMENTS SOURCES :
+{context}
 
-                    QUESTION :
-                    {question}
-                    [/INST]</s>
+QUESTION : {question}"""
 
-                    RÉPONSE :"""
-
-        return prompt
+        return system_prompt, user_prompt
 
     def _format_context(self, chunks_list, metadata_list):
 
@@ -108,6 +109,45 @@ class RAGSystem:
             formatted_context += f"---\n"
 
         return formatted_context
+
+    # Stopwords français à ignorer dans le keyword scoring
+    _STOPWORDS = {
+        'les', 'des', 'une', 'pour', 'dans', 'sur', 'avec', 'qui', 'que',
+        'est', 'son', 'ses', 'par', 'aux', 'tout', 'plus', 'mais', 'où',
+        'quels', 'quelles', 'quel', 'quelle', 'sont', 'ont', 'mes', 'ces',
+        'cette', 'votre', 'avoir', 'être', 'peut', 'elle', 'ils', 'elles',
+        'puis', 'trouver', 'comment', 'quoi', 'faire', 'lieu', 'lille',
+        'mois', 'ceci', 'celui', 'celui-ci', 'aussi', 'comme', 'entre',
+    }
+
+    def _keyword_score(self, query, chunk):
+        query_words = set(query.lower().split())
+        chunk_lower = chunk.lower()
+        # Filtre stopwords et mots courts
+        query_words = {w.strip('?!.,éèêëàâùûîï') for w in query_words
+                       if len(w) > 3 and w.strip('?!.,') not in self._STOPWORDS}
+        if not query_words:
+            return 0.0
+        # Score : proportion de mots-clés présents dans le chunk (substring match)
+        matches = sum(1 for w in query_words if w in chunk_lower)
+        # Bonus si le chunk contient plusieurs mots-clés (pertinence cumulée)
+        bonus = min(matches / max(len(query_words), 1), 1.0)
+        return bonus
+
+    def _rerank_chunks(self, query, query_embedding, chunks, metadata, top_k):
+        chunk_embeddings = self.embedding_model.encode(chunks)
+        q = query_embedding / (np.linalg.norm(query_embedding) + 1e-9)
+        scores = []
+        for emb, chunk in zip(chunk_embeddings, chunks):
+            e = emb / (np.linalg.norm(emb) + 1e-9)
+            cosine = float(np.dot(q, e))
+            keyword = self._keyword_score(query, chunk)
+            # Score hybride : 60% cosinus + 40% keyword
+            hybrid = 0.60 * cosine + 0.40 * keyword
+            scores.append(hybrid)
+        ranked = sorted(zip(scores, chunks, metadata), key=lambda x: x[0], reverse=True)
+        ranked = ranked[:top_k]
+        return [c for _, c, _ in ranked], [m for _, _, m in ranked]
 
     def query(
         self,
@@ -122,18 +162,24 @@ class RAGSystem:
         query_embedding = self.embedding_model.encode([question])[0]
         query_vector = query_embedding.astype('float32').reshape(1, -1)
 
-        # 3. Recherche dans l'index FAISS
-        distances, indices = self.index.search(query_vector, top_k)
+        # 3. Recherche dans l'index FAISS (on récupère plus de candidats pour le reranking)
+        candidate_k = min(top_k * 2, self.index.ntotal)
+        distances, indices = self.index.search(query_vector, candidate_k)
 
-        # 4. Extraction des chunks et métadonnées
-        retrieved_chunks = [self.chunks[idx] for idx in indices[0]]
-        retrieved_metadata = [self.metadata_list[idx] for idx in indices[0]]
+        # 4. Extraction des chunks et métadonnées candidats
+        candidate_chunks = [self.chunks[idx] for idx in indices[0]]
+        candidate_metadata = [self.metadata_list[idx] for idx in indices[0]]
 
-        # 5. Formatage du contexte
+        # 5. Reranking hybride (cosinus + keyword) et sélection des top_k
+        retrieved_chunks, retrieved_metadata = self._rerank_chunks(
+            question, query_embedding, candidate_chunks, candidate_metadata, top_k
+        )
+
+        # 6. Formatage du contexte
         context = self._format_context(retrieved_chunks, retrieved_metadata)
 
         # 6. Création du prompt
-        prompt = self._create_mistral_prompt(context, question)
+        system_prompt, user_prompt = self._create_mistral_prompt(context, question)
 
         # 7. Appel API Mistral
         try:
@@ -141,8 +187,12 @@ class RAGSystem:
                 model=config["name"],
                 messages=[
                     {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
                         "role": "user",
-                        "content": prompt
+                        "content": user_prompt
                     }
                 ],
                 temperature=config["temperature"],
@@ -161,6 +211,7 @@ class RAGSystem:
             'question': question,
             'answer': response_text,
             'sources': retrieved_metadata,
+            'contexts': retrieved_chunks,
             'nb_sources': len(retrieved_chunks),
             'config': config
         }
