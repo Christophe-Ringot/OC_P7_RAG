@@ -16,7 +16,7 @@ load_dotenv()
 class MistralConfig:
     MODELS = {
         "devstral-small": {
-            "name": "mistral-small-latest",
+            "name": "devstral-small-latest",
             "temperature": 0,
             "max_tokens": 1000,
         }

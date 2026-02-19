@@ -65,7 +65,7 @@ def prepare_ragas_dataset(eval_data, rag_responses):
 def run_evaluation(dataset):
 
     llm = ChatMistralAI(
-        model="mistral-small-latest",
+        model="devstral-small-latest",
         temperature=0,
         api_key=os.getenv("MISTRAL_API_KEY")
     )
