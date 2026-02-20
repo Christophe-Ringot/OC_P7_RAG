@@ -4,10 +4,13 @@ from typing import List, Dict, Optional
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from mistralai import Mistral
 from dotenv import load_dotenv
 import pandas as pd
 import requests
+from langchain_mistralai import ChatMistralAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+import time
 
 # Chargement des variables d'environnement
 load_dotenv()
@@ -48,7 +51,7 @@ class RAGSystem:
         self.chunks: Optional[List[str]] = None
         self.metadata_list: Optional[List[Dict]] = None
         self.embedding_model: Optional[SentenceTransformer] = None
-        self.mistral_client: Optional[Mistral] = None
+        self.llm: Optional[ChatMistralAI] = None
 
         # Chargement au démarrage
         self._load_components()
@@ -71,33 +74,32 @@ class RAGSystem:
         # 3. Charger le modèle d'embeddings
         self.embedding_model = SentenceTransformer(self.embedding_model_name)
 
-        # 4. Initialiser le client Mistral
-        api_key = os.getenv("MISTRAL_API_KEY")
-        if not api_key:
-            raise ValueError("MISTRAL_API_KEY non définie dans .env")
-        self.mistral_client = Mistral(api_key=api_key)
+        self.llm = ChatMistralAI(
+            model="devstral-small-latest",
+            temperature=0,
+            max_tokens=1000
+        )
 
 
-    def _create_mistral_prompt(self, context, question) :
-        system_prompt = """Tu es un assistant expert en événements culturels de Lille.
-Tu réponds UNIQUEMENT avec les informations extraites des documents fournis.
+    def _create_prompt(self, context, question) :
+        template = """Tu es un assistant expert en événements culturels de Lille.
+            Tu réponds UNIQUEMENT avec les informations extraites des documents fournis.
 
-RÈGLES ABSOLUES :
-1. Ta réponse doit toujours être directement liée au sujet précis de la question (lieu, type d'événement, etc.)
-2. Interdiction absolue de commencer par : "Oui", "Non", "D'après", "Selon", "Il y a", "Voici", "L'information"
-3. Chaque affirmation doit être tirée d'un document source
-4. N'ajoute AUCUNE information extérieure aux documents
-5. Si l'information exacte n'est pas dans les documents : commence par "Aucun événement [sujet de la question] n'est mentionné dans les documents disponibles." puis propose 3 événements alternatifs du même domaine
-6. Liste au maximum 5 événements, en priorité ceux qui répondent le mieux à la question
-7. Format : pour chaque événement, écris "**[Titre]** - [Description courte] - Lieu : [lieu]"
-8. Réponds en français de façon concise"""
+            RÈGLES ABSOLUES :
+            1. Ta réponse doit toujours être directement liée au sujet précis de la question
+            2. Interdiction absolue de commencer par : "Oui", "Non", "D'après", "Selon"
+            3. Chaque affirmation doit être tirée d'un document source
+            4. N'ajoute AUCUNE information extérieure aux documents
+            5. Si l'information n'est pas disponible, propose 3 alternatives similaires
+            6. Maximum 5 événements
+            7. Format : **[Titre]** - [Description] - Lieu : [lieu]
 
-        user_prompt = f"""DOCUMENTS SOURCES :
-{context}
+            DOCUMENTS SOURCES :
+            {context}
 
-QUESTION : {question}"""
-
-        return system_prompt, user_prompt
+            QUESTION : {question}"""
+    
+        return ChatPromptTemplate.from_template(template)
 
     def _format_context(self, chunks_list, metadata_list):
 
@@ -178,31 +180,22 @@ QUESTION : {question}"""
         # 6. Formatage du contexte
         context = self._format_context(retrieved_chunks, retrieved_metadata)
 
-        # 6. Création du prompt
-        system_prompt, user_prompt = self._create_mistral_prompt(context, question)
-
-        # 7. Appel API Mistral
+        # 7. Création de la chaîne RAG avec LangChain
         try:
-            chat_response = self.mistral_client.chat.complete(
-                model=config["name"],
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt
-                    }
-                ],
-                temperature=config["temperature"],
-                max_tokens=config["max_tokens"]
+            prompt = self._create_prompt(context, question)
+
+            chain = (
+                {"context": lambda x: context, "question": lambda x: question}
+                | prompt
+                | self.llm
+                | StrOutputParser()
             )
 
-            response_text = chat_response.choices[0].message.content
+            response_text = chain.invoke({})
 
         except Exception as e:
             response_text = f"Erreur lors de l'appel au modèle {model_key}: {str(e)}"
+
 
         # 8. Retour structuré
         return {
